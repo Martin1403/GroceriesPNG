@@ -34,6 +34,6 @@ def load_images(images_path, background, num=5, max_size=800):
         angle = randint(0, 360)
         try:
             images.append(PngImage(image_path, count, background, thresh=127, rotate=angle, max_size=max_size))
-        except (ValueError, IndexError):
+        except (ValueError, IndexError, AttributeError):
             print(image_name)
     return images

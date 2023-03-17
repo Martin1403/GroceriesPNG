@@ -40,8 +40,10 @@ def resize_image(img_array, max_size=300):
 
 def load_image_mask(image_path, thresh=127, rotate=45, max_size=800):
     image_array = cv2.imread(image_path, -1)  # Load image
-    image_array_res = resize_image(image_array, max_size=max_size)  # Resize image with scale
-    image_array_rot = rotate_image(image_array_res, angle=randint(0, 180))  # Random rotate
+    #image_array_res = resize_image(image_array, max_size=max_size)  # Resize image with scale
+    image_array_res = image_array  # Resize image with scale
+    #image_array_rot = rotate_image(image_array_res, angle=randint(0, 180))  # Random rotate
+    image_array_rot = rotate_image(image_array_res, angle=0)  # randint(0, 180))  # Random rotate
     image_array_rgb = image_array_rot[:, :, :3]  # Index only BGR channel
     # image_array_rgb = cv2.cvtColor(image_array_bgr, cv2.COLOR_BGR2RGB)  # Convert not needed
     image_array_mask = image_array_rot[:, :, -1]  # Index alpha channel
