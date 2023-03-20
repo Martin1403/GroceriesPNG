@@ -40,25 +40,32 @@ def resize_image(img_array, max_size=300):
 
 def load_image_mask(image_path, thresh=127, rotate=45, max_size=800):
     image_array = cv2.imread(image_path, -1)  # Load image
-    #image_array_res = resize_image(image_array, max_size=max_size)  # Resize image with scale
-    image_array_res = image_array  # Resize image with scale
-    #image_array_rot = rotate_image(image_array_res, angle=randint(0, 180))  # Random rotate
-    image_array_rot = rotate_image(image_array_res, angle=0)  # randint(0, 180))  # Random rotate
+    if max_size:
+        image_array_res = resize_image(image_array, max_size=max_size)  # Resize image with scale
+    else:
+        image_array_res = image_array
+    image_array_rot = rotate_image(image_array_res, angle=0)#randint(0, 180))  # Random rotate
     image_array_rgb = image_array_rot[:, :, :3]  # Index only BGR channel
-    # image_array_rgb = cv2.cvtColor(image_array_bgr, cv2.COLOR_BGR2RGB)  # Convert not needed
     image_array_mask = image_array_rot[:, :, -1]  # Index alpha channel
     image_array_mask_thresh = np.where(image_array_mask <= thresh, 0, 255).astype(np.uint8)  # Mask threshold
 
     kernel = np.ones((5, 5), np.uint8)
-    eroded_img = cv2.erode(image_array_mask_thresh, kernel, iterations=1)
+    image_array_mask_thresh_blur = cv2.erode(image_array_mask_thresh, kernel, iterations=1)
 
-    image_array_rgb = cv2.bitwise_and(image_array_rgb, image_array_rgb, mask=eroded_img)
-    
-    return cut_image(image_array_rgb, eroded_img)
+    image_array_mask_thresh_blur = cv2.GaussianBlur(image_array_mask_thresh_blur, (3, 3), 0, 0, cv2.BORDER_DEFAULT)
+
+    image_array_mask_thresh = cv2.bitwise_and(image_array_mask_thresh, image_array_mask_thresh_blur)
+
+    image_array_rgb = cv2.bitwise_and(image_array_rgb, image_array_rgb, mask=image_array_mask_thresh)
+
+    return cut_image(image_array_rgb, image_array_mask_thresh)
 
 
-def polygon_from_mask(masked_array):
+def polygon_from_mask(masked_array, thresh=False):
     """The function return polygon from mask"""
+    if thresh:
+        masked_array = np.where(masked_array < 100, 0, 255).astype("uint8")
+
     contours, _ = cv2.findContours(masked_array, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     segmentation = []
     valid_poly = 0
@@ -81,11 +88,31 @@ def cut_image(image, mask):
     return image_crop, mask_crop
 
 
-def place_object(polygon, background, image_mask, image, off_x=0, off_y=0, inv=False):
+def place_object_rgb(polygon, background, image_mask, image, off_x=0, off_y=0, inv=False):
     (min_x, min_y), (max_x, max_y) = np.min(polygon, axis=0), np.max(polygon, axis=0)
     roi = background[min_y+off_y: max_y+off_y, min_x+off_x: max_x+off_x]
-    mask = image_mask[min_y: max_y, min_x: max_x] 
+    mask = image_mask[min_y: max_y, min_x: max_x]
+    src_cut = image[min_y: max_y, min_x: max_x]
+    alpha_mask = mask  # Invert mask
+    alpha_mask = alpha_mask.astype("float32") / 255
+    alpha_mask = cv2.cvtColor(alpha_mask, cv2.COLOR_GRAY2BGR)
+    composite = roi * (1 - alpha_mask) + src_cut * alpha_mask
+
+    # dst = cv2.add(img_bg, src_cut)
+    # dst = cv2.bitwise_or(img_bg, src_cut)
+
+    final = background.copy()
     
+    final[min_y+off_y: max_y+off_y, min_x+off_x: max_x+off_x] = composite
+    
+    return final
+
+
+def place_object(polygon, background, image_mask, image, off_x=0, off_y=0, inv=False):
+    (min_x, min_y), (max_x, max_y) = np.min(polygon, axis=0), np.max(polygon, axis=0)
+    roi = background[min_y + off_y: max_y + off_y, min_x + off_x: max_x + off_x]
+    mask = image_mask[min_y: max_y, min_x: max_x]
+
     mask_inv = cv2.bitwise_not(mask)
 
     img_bg = cv2.bitwise_and(roi, roi, mask=mask_inv)
@@ -96,11 +123,10 @@ def place_object(polygon, background, image_mask, image, off_x=0, off_y=0, inv=F
         dst = img_bg
 
     final = background.copy()
-    
-    final[min_y+off_y: max_y+off_y, min_x+off_x: max_x+off_x] = dst
-    
-    return final
 
+    final[min_y + off_y: max_y + off_y, min_x + off_x: max_x + off_x] = dst
+
+    return final
 
 def get_max_list(inp_list):
     inp_list.sort(key=len, reverse=True)

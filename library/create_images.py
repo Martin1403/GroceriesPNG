@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 
 from library.png_image import load_images
-from library.utils import polygon_from_mask, place_object, counter, load_background
+from library.utils import polygon_from_mask, place_object_rgb, counter, load_background, place_object
 
 
 def create_image(args, c):
@@ -20,7 +20,7 @@ def create_image(args, c):
 
         for pos, image in enumerate(images, 0):
             # Place RGB images
-            background_array = place_object(polygon=image.polygon,
+            background_array = place_object_rgb(polygon=image.polygon,
                                             background=background_array,
                                             image_mask=image.mask,
                                             image=image.rgb,
@@ -41,7 +41,7 @@ def create_image(args, c):
                                                 image=image_inv.mask_fill,
                                                 off_x=image_inv.off_x, off_y=image_inv.off_y, inv=True)
             try:
-                polygon_list = polygon_from_mask(black_background)
+                polygon_list = polygon_from_mask(black_background,  thresh=True)
 
                 for polygon in polygon_list:
                     polygon_array = np.array(polygon, dtype=np.int32).reshape((-1, 2))
